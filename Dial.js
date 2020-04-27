@@ -14,6 +14,7 @@ export class Dial extends Component {
     initialRadius: 1,
     initialAngle: 0,
     precision: 0,
+    angleParser: a => a
   }
 
   constructor(props) {
@@ -27,7 +28,7 @@ export class Dial extends Component {
       radius: this.props.initialRadius,
     }
     this.offset = { x: 0, y: 0 }
-    this.updateState = throttle(this.updateState.bind(this), 16)
+    this.updateState = throttle(this.updateState.bind(this), 24)
   }
 
   componentWillMount () {
@@ -57,7 +58,9 @@ export class Dial extends Component {
           this.setState({
             releaseAngle: angle,
             releaseRadius: radius,
-          })
+          }, 
+          // Knobs
+          () => this.props.onRelease ? this.props.onRelease(this.state.releaseAngle) : null);
         }
       },
     })
@@ -92,7 +95,7 @@ export class Dial extends Component {
 
   updateAngle (gestureState) {
     let { deg, radius } = this.calcAngle(gestureState)
-    if (deg < 0) deg += 360
+    if (deg < 0) deg += 360 
     if (Math.abs(this.state.angle - deg) > this.props.precision) {
       this.updateState({ deg, radius })
     }
@@ -109,24 +112,31 @@ export class Dial extends Component {
   }
 
   updateState ({ deg, radius = this.state.radius }) {
-    radius = this.state.releaseRadius + radius - this.state.startingRadius
-    if (radius < this.props.radiusMin) radius = this.props.radiusMin
-    else if (radius > this.props.radiusMax) radius = this.props.radiusMax
+    
+    // Knobs
+    const { maxAllowedAngle, minAllowedAngle, radiusMin, radiusMax, angleParser } = this.props;
 
-    const angle = deg + this.state.releaseAngle - this.state.startingAngle
-    if (deg < 0) deg += 360
+    radius = this.state.releaseRadius + radius - this.state.startingRadius
+    if (radius < radiusMin) radius = radiusMin
+    else if (radius > radiusMax) radius = radiusMax
+
+    // Knobs
+    let angle = angleParser(deg + this.state.releaseAngle - this.state.startingAngle);
+
+    // Knobs
+    if(angle > maxAllowedAngle) {
+      angle = maxAllowedAngle;
+    } else if(angle < minAllowedAngle) {
+      angle = minAllowedAngle;
+    }
+
+    // Knobs
+    // if (deg < 0) deg += 360
 
     if (angle !== this.state.angle || radius !== this.state.radius) {
       this.setState({ angle, radius })
       if (this.props.onValueChange) this.props.onValueChange(angle, radius)
     }
-  }
-
-  forceUpdate = (deg: number, radius: number) => {
-    this.setState({
-      angle: deg === undefined ? this.state.angle : deg,
-      radius: radius === undefined ? this.state.radius : radius,
-    })
   }
 
   render () {
